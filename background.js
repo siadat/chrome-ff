@@ -20,26 +20,28 @@ function ffSearchFor(text, callback) {
         array_of_tabs.
         map(function(tab) {
 
-          if(FF_DEBUGGING) { console.debug("tab", tab); }
-
           switch (true) {
           case !!tab.title.match(exact_query):
             tab.score = 40;
             tab.score += 1 - 1.0 * exact_query.exec(tab.title).index / FF_MAX_MATCHLENGTH;
+            tab.title = ffEscapeHtml(tab.title);
             tab.title = tab.title.replace(exact_query_hl, "<match>$1</match>")
             break;
           case !!tab.url.match(exact_query):
             tab.score = 40;
             tab.score += 1 - 1.0 * exact_query.exec(tab.url).index / FF_MAX_MATCHLENGTH;
+            tab.title = ffEscapeHtml(tab.title);
             break;
           case !!tab.title.match(fuzzy_query):
-            tab.title = tab.title.replace(fuzzy_query, function(m) { return "<match>" + m + "</match>"; })
             tab.score = 20;
             tab.score += 1 - 1.0 * tab.title.match(fuzzy_query)[0].length / FF_MAX_MATCHLENGTH;
+            tab.title = ffEscapeHtml(tab.title);
+            tab.title = tab.title.replace(fuzzy_query, function(m) { return "<match>" + m + "</match>"; })
             break;
           case !!tab.url.match(fuzzy_query):
             tab.score = 20;
             tab.score += 1 - 1.0 * tab.url.match(fuzzy_query)[0].length / FF_MAX_MATCHLENGTH;
+            tab.title = ffEscapeHtml(tab.title);
             break;
           default:
             tab.score = 0;
@@ -59,6 +61,8 @@ function ffSearchFor(text, callback) {
             }
           }
 
+          if(FF_DEBUGGING && tab.score > 0) { console.debug("tab", tab.title); }
+
           if(tab.pinned) { tab.score += 1; }
 
           return tab;
@@ -76,13 +80,14 @@ function ffSearchFor(text, callback) {
 
           var content = JSON.stringify({tabId: tab.id, windowId: tab.windowId});
           if(!tab.hostname) { tab.hostname = ffGetHostname(tab.url)}
+          tab.title = tab.title.replace(/\s+/, ' ');
           var desc = tab.title + " <url>" + tab.hostname + "</url>";
           if(FF_DEBUGGING) { desc = "score:" + tab.score + " - " + desc; }
 
           if(tab.status !== "complete") desc = "[" + tab.status + "] " + desc;
-          if(tab.incognito) desc = "[incognito] " + desc;
-          if(tab.pinned)    desc = "[pinned] " + desc;
-          if(tab.audible)   desc = "[audible] " + desc;
+          if(tab.incognito) desc = "<url>[Incognito]</url> " + desc;
+          if(tab.pinned)    desc = "<url>[Pinned]</url> " + desc;
+          if(tab.audible)   desc = "<url>[Audible]</url> " + desc;
 
           return {content: content, description: desc};
       })
@@ -93,6 +98,14 @@ function ffSearchFor(text, callback) {
 chrome.omnibox.onInputChanged.addListener(
   function(text, suggest) { ffSearchFor(text, suggest); }
 );
+
+function ffEscapeHtml(unsafe) {
+  return unsafe.replace(/&/g, "&amp;")
+               .replace(/</g, "&lt;")
+               .replace(/>/g, "&gt;")
+               .replace(/"/g, "&quot;")
+               .replace(/'/g, "&#039;");
+}
 
 function ffActivateTag(tabId, windowId) {
   if(tabId) {
