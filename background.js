@@ -51,18 +51,22 @@ function ffSearchFor(text, callback) {
     var score = 0;
     var hostname = ffGetHostname(tab.url);
 
-    words_fuzzy.forEach(function(word) {
-      if(tab.title.match(word)) { score += 20; }
-      if(tab.url.match(word)) { score += 20; }
-      if(hostname.match(word)) { score += 20; }
+    var found_words = words_exact.map(function() { return false; })
+
+    words_fuzzy.forEach(function(word, i) {
+      if(tab.title.match(word)) { score += 20; found_words[i] = true; }
+      if(tab.url.match(word)) { score += 20; found_words[i] = true; }
+      if(hostname.match(word)) { score += 20; found_words[i] = true; }
     });
 
-    words_exact.forEach(function(word) {
-      if(tab.title.match(word)) { score += 100; }
-      if(tab.url.match(word)) { score += 100; }
-      if(hostname.match(word)) { score += 100; }
+    words_exact.forEach(function(word, i) {
+      if(found_words[i]) { return; }
+      if(tab.title.match(word)) { score += 100; found_words[i] = true; }
+      if(tab.url.match(word)) { score += 100; found_words[i] = true; }
+      if(hostname.match(word)) { score += 100; found_words[i] = true; }
     });
 
+    if(found_words.filter(function(x) { return x; }).length !== words_exact.length) { score = 0; }
     if(score > 0 && tab.pinned) { score += 1000; }
 
     if(FF_DEBUGGING && score > 0) { console.debug("tab", tab.title); }
