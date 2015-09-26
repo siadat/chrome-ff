@@ -1,8 +1,18 @@
 # Fuzzy Finder for Chrome
 
-Adds fuzzy tab search to the omnibox.  Type "ff siadat github" in your address bar to search for "siadat" and "github" (in any order) in your tab titles and urls.
+Adds fuzzy tab search to the omnibox.
 
 <p align="center"> <a href="#"><img src="ff-screenshot.png"/></a> </p>
+
+## Usage
+
+Let's say you have 100 tabs open, in multiple windows.
+You want to find a youtube tab of a talk you were watch a few hours ago.
+Instead of going through all your tabs one by one, you could just type (in your address bar):
+
+    ff youtube talk
+
+and you will see a list of all the tabs that match the phrase `youtube` and `talk` in any order.
 
 ## Install
 
