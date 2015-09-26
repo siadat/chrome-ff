@@ -4,6 +4,11 @@ var FF_MAX_SUGGESTIONS = 20;
 var FF_MAX_MATCHLENGTH = 1000;
 var FF_DEBUGGING = false;
 var FF_HISTORY = [];
+var FF_INCLUDE_HISTORY = false;
+
+function escapeRegExp(str) {
+  return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+}
 
 function ffGetHostname(url) {
   var a  = document.createElement('a');
@@ -14,24 +19,32 @@ function ffGetHostname(url) {
 function ffSearchFor(text, callback) {
   text = text.trim();
   var words_exact = text.split(/\s+/).map(function(word) {
-    return new RegExp(word, 'i');
+    return new RegExp(escapeRegExp(word), 'i');
   });
 
   var words_exact_hl = text.split(/\s+/).map(function(word) {
-    return new RegExp("(" + word + ")", 'ig');
+    return new RegExp("(" + escapeRegExp(word) + ")", 'ig');
   });
 
   var words_fuzzy = text.split(/\s+/).map(function(word) {
-    return new RegExp(text.split('').join('.*?'), 'i');
+    return new RegExp(word.split('').map(function(ch) { return escapeRegExp(ch); }).join('.*?'), 'i');
   });
 
   var highlightText = function(text) {
     words_exact_hl.forEach(function(word) {
       if(text.match(word)) {
-        text = text.replace(word, "<match>$1</match>")
+        text = text.replace(word, "\0$1\1")
       }
     });
-    return text;
+    words_fuzzy.forEach(function(word) {
+      if(text.match(word)) {
+        text = text.replace(word, function(m) {
+          return "\0" + m + "\1";
+        });
+      }
+    });
+    return ffEscapeHtml(text).replace(new RegExp("\0", "g"), "<match>")
+                             .replace(new RegExp("\1", "g"), "</match>");
   }
 
   var calculateScoreWords = function(tab) {
@@ -56,6 +69,17 @@ function ffSearchFor(text, callback) {
     return score;
   }
 
+  if(FF_INCLUDE_HISTORY) {
+    chrome.history.search({text: ""}, function(array_of_history_items) {
+      callback(
+        array_of_history_items.
+        map(function(tab) {
+          return {content: JSON.stringify({url: tab.url}), description: "history " + ffEscapeHtml(tab.url)}
+        })
+      );
+    });
+  }
+
   chrome.tabs.query({}, function(array_of_tabs) {
     callback(
         array_of_tabs.
@@ -69,8 +93,6 @@ function ffSearchFor(text, callback) {
         slice(0, FF_MAX_SUGGESTIONS).
         map(function(tab) {
           var content = JSON.stringify({tabId: tab.id, windowId: tab.windowId});
-          tab.url = ffEscapeHtml(tab.url);
-          tab.title = ffEscapeHtml(tab.title);
           var desc = highlightText(tab.title) + " <url>" +  highlightText(ffGetHostname(tab.url)) + "</url>";
 
           if(FF_DEBUGGING) {

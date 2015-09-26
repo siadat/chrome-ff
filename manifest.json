@@ -6,7 +6,7 @@
   "version": "1.0",
   "author": "Sina Siadat <siadat@gmail.com>",
   "homepage_url": "https://github.com/siadat/chrome-ff",
-  "permissions": [ "tabs" ],
+  "permissions": [ "tabs", "history" ],
   "background": {
     "scripts": ["background.js"]
   },
