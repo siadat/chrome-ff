@@ -12,54 +12,44 @@ function ffGetHostname(url) {
 }
 
 function ffSearchFor(text, callback) {
-  var fuzzy_query = new RegExp(text.split('').join('.*?'), 'i');
-  var exact_query = new RegExp(text, 'i');
-  var exact_query_hl = new RegExp("(" + text + ")", 'ig');
+  var words_exact = text.split(/\s+/).map(function(word) {
+    return new RegExp(word, 'i');
+  });
+
+  var words_exact_hl = text.split(/\s+/).map(function(word) {
+    return new RegExp("(" + word + ")", 'ig');
+  });
+
+  var words_fuzzy = text.split(/\s+/).map(function(word) {
+    return new RegExp(text.split('').join('.*?'), 'i');
+  });
 
   var highlightText = function(text) {
-    if(text.match(exact_query_hl)) {
-      return ffEscapeHtml(text).replace(exact_query_hl, "<match>$1</match>")
-    } else {
-      return ffEscapeHtml(text).replace(fuzzy_query, function(match) { return "<match>" + match + "</match>"; })
-    }
+    words_exact_hl.forEach(function(word) {
+      if(text.match(word)) {
+        text = text.replace(word, "<match>$1</match>")
+      }
+    });
+    return text;
   }
 
-  var calculateScore = function(tab) {
+  var calculateScoreWords = function(tab) {
     var score = 0;
+    var hostname = ffGetHostname(tab.url);
 
-    switch (true) {
-    case !!tab.title.match(exact_query):
-      score = 40;
-      score += 1 - 1.0 * exact_query.exec(tab.title).index / FF_MAX_MATCHLENGTH;
-      break;
-    case !!tab.url.match(exact_query):
-      score = 40;
-      score += 1 - 1.0 * exact_query.exec(tab.url).index / FF_MAX_MATCHLENGTH;
-      break;
-    case !!tab.title.match(fuzzy_query):
-      score = 20;
-      score += 1 - 1.0 * tab.title.match(fuzzy_query)[0].length / FF_MAX_MATCHLENGTH;
-      break;
-    case !!tab.url.match(fuzzy_query):
-      score = 20;
-      score += 1 - 1.0 * tab.url.match(fuzzy_query)[0].length / FF_MAX_MATCHLENGTH;
-      break;
-    }
+    words_fuzzy.forEach(function(word) {
+      if(tab.title.match(word)) { score += 20; }
+      if(tab.url.match(word)) { score += 20; }
+      if(hostname.match(word)) { score += 20; }
+    });
 
-    if(score > 0) {
-      var hostname = ffGetHostname(tab.url);
-      switch (true) {
-        case !!hostname.match(exact_query):
-          score += 200;
-          break;
-        case !!hostname.match(fuzzy_query):
-          score += 100;
-          break;
-      }
-      if(tab.pinned) {
-        score += 1000;
-      }
-    }
+    words_exact.forEach(function(word) {
+      if(tab.title.match(word)) { score += 100; }
+      if(tab.url.match(word)) { score += 100; }
+      if(hostname.match(word)) { score += 100; }
+    });
+
+    if(score > 0 && tab.pinned) { score += 1000; }
 
     if(FF_DEBUGGING && score > 0) { console.debug("tab", tab.title); }
     return score;
@@ -68,7 +58,7 @@ function ffSearchFor(text, callback) {
   chrome.tabs.query({}, function(array_of_tabs) {
     callback(
         array_of_tabs.
-        map(function(tab) { tab.score = calculateScore(tab); return tab; }).
+        map(function(tab) { tab.score = calculateScoreWords(tab); return tab; }).
         filter(function(tab) { return tab.score >= 10; }).
         sort(function(tab1, tab2) {
           if(tab1.score < tab2.score) return 1;
@@ -78,6 +68,8 @@ function ffSearchFor(text, callback) {
         slice(0, FF_MAX_SUGGESTIONS).
         map(function(tab) {
           var content = JSON.stringify({tabId: tab.id, windowId: tab.windowId});
+          tab.url = ffEscapeHtml(tab.url);
+          tab.title = ffEscapeHtml(tab.title);
           var desc = highlightText(tab.title) + " <url>" +  highlightText(ffGetHostname(tab.url)) + "</url>";
 
           if(FF_DEBUGGING) {

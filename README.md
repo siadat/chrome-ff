@@ -1,6 +1,6 @@
 # Fuzzy Finder for Chrome
 
-Adds fuzzy tab search to the omnibox.  Type `ff query` in your address bar to search for `query` in your tab titles and urls.
+Adds fuzzy tab search to the omnibox.  Type "ff siadat github" in your address bar to search for "siadat" and "github" (in any order) in your tab titles and urls.
 
 <p align="center"> <a href="#"><img src="ff-screenshot.png"/></a> </p>
 
