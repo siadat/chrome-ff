@@ -2,7 +2,7 @@
 
 Adds fuzzy tab search to the omnibox.
 
-<p align="center"> <a href="#"><img src="ff-screenshot.png"/></a> </p>
+<p align="center"> <a href="#"><img src="screenshot.png"/></a> </p>
 
 ## Usage
 
