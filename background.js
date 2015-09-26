@@ -12,64 +12,64 @@ function ffGetHostname(url) {
 }
 
 function ffSearchFor(text, callback) {
+  var fuzzy_query = new RegExp(text.split('').join('.*?'), 'i');
+  var exact_query = new RegExp(text, 'i');
+  var exact_query_hl = new RegExp("(" + text + ")", 'ig');
+
+  var highlightText = function(text) {
+    if(text.match(exact_query_hl)) {
+      return ffEscapeHtml(text).replace(exact_query_hl, "<match>$1</match>")
+    } else {
+      return ffEscapeHtml(text).replace(fuzzy_query, function(match) { return "<match>" + match + "</match>"; })
+    }
+  }
+
+  var calculateScore = function(tab) {
+    var score = 0;
+
+    switch (true) {
+    case !!tab.title.match(exact_query):
+      score = 40;
+      score += 1 - 1.0 * exact_query.exec(tab.title).index / FF_MAX_MATCHLENGTH;
+      break;
+    case !!tab.url.match(exact_query):
+      score = 40;
+      score += 1 - 1.0 * exact_query.exec(tab.url).index / FF_MAX_MATCHLENGTH;
+      break;
+    case !!tab.title.match(fuzzy_query):
+      score = 20;
+      score += 1 - 1.0 * tab.title.match(fuzzy_query)[0].length / FF_MAX_MATCHLENGTH;
+      break;
+    case !!tab.url.match(fuzzy_query):
+      score = 20;
+      score += 1 - 1.0 * tab.url.match(fuzzy_query)[0].length / FF_MAX_MATCHLENGTH;
+      break;
+    }
+
+    if(score > 0) {
+      var hostname = ffGetHostname(tab.url);
+      switch (true) {
+        case !!hostname.match(exact_query):
+          score += 200;
+          break;
+        case !!hostname.match(fuzzy_query):
+          score += 100;
+          break;
+      }
+      if(tab.pinned) {
+        score += 1000;
+      }
+    }
+
+    if(FF_DEBUGGING && score > 0) { console.debug("tab", tab.title); }
+    return score;
+  }
+
   chrome.tabs.query({}, function(array_of_tabs) {
-    var fuzzy_query = new RegExp(text.split('').join('.*?'), 'i');
-    var exact_query = new RegExp(text, 'i');
-    var exact_query_hl = new RegExp("(" + text + ")", 'ig');
     callback(
         array_of_tabs.
-        map(function(tab) {
-
-          switch (true) {
-          case !!tab.title.match(exact_query):
-            tab.score = 40;
-            tab.score += 1 - 1.0 * exact_query.exec(tab.title).index / FF_MAX_MATCHLENGTH;
-            tab.title = ffEscapeHtml(tab.title);
-            tab.title = tab.title.replace(exact_query_hl, "<match>$1</match>")
-            break;
-          case !!tab.url.match(exact_query):
-            tab.score = 40;
-            tab.score += 1 - 1.0 * exact_query.exec(tab.url).index / FF_MAX_MATCHLENGTH;
-            tab.title = ffEscapeHtml(tab.title);
-            break;
-          case !!tab.title.match(fuzzy_query):
-            tab.score = 20;
-            tab.score += 1 - 1.0 * tab.title.match(fuzzy_query)[0].length / FF_MAX_MATCHLENGTH;
-            tab.title = ffEscapeHtml(tab.title);
-            tab.title = tab.title.replace(fuzzy_query, function(m) { return "<match>" + m + "</match>"; })
-            break;
-          case !!tab.url.match(fuzzy_query):
-            tab.score = 20;
-            tab.score += 1 - 1.0 * tab.url.match(fuzzy_query)[0].length / FF_MAX_MATCHLENGTH;
-            tab.title = ffEscapeHtml(tab.title);
-            break;
-          default:
-            tab.score = 0;
-          }
-
-          if(tab.score > 0) {
-            var hostname = ffGetHostname(tab.url);
-            switch (true) {
-              case !!hostname.match(exact_query):
-                tab.hostname = hostname.replace(exact_query_hl, "<match>$1</match>");
-                tab.score += 200;
-                break;
-              case !!hostname.match(fuzzy_query):
-                tab.hostname = hostname.replace(fuzzy_query, function(m) { return "<match>" + m + "</match>"; });
-                tab.score += 100;
-                break;
-            }
-          }
-
-          if(FF_DEBUGGING && tab.score > 0) { console.debug("tab", tab.title); }
-
-          if(tab.pinned) { tab.score += 1; }
-
-          return tab;
-        }).
-        filter(function(tab) {
-          return tab.score >= 10;
-        }).
+        map(function(tab) { tab.score = calculateScore(tab); return tab; }).
+        filter(function(tab) { return tab.score >= 10; }).
         sort(function(tab1, tab2) {
           if(tab1.score < tab2.score) return 1;
           if(tab1.score > tab2.score) return -1;
@@ -77,17 +77,28 @@ function ffSearchFor(text, callback) {
         }).
         slice(0, FF_MAX_SUGGESTIONS).
         map(function(tab) {
-
           var content = JSON.stringify({tabId: tab.id, windowId: tab.windowId});
-          if(!tab.hostname) { tab.hostname = ffGetHostname(tab.url)}
-          tab.title = tab.title.replace(/\s+/, ' ');
-          var desc = tab.title + " <url>" + tab.hostname + "</url>";
-          if(FF_DEBUGGING) { desc = "score:" + tab.score + " - " + desc; }
+          var desc = highlightText(tab.title) + " <url>" +  highlightText(ffGetHostname(tab.url)) + "</url>";
 
-          if(tab.status !== "complete") desc = "[" + tab.status + "] " + desc;
-          if(tab.incognito) desc = "<url>[Incognito]</url> " + desc;
-          if(tab.pinned)    desc = "<url>[Pinned]</url> " + desc;
-          if(tab.audible)   desc = "<url>[Audible]</url> " + desc;
+          if(FF_DEBUGGING) {
+            desc = "score:" + tab.score + " - " + desc;
+          }
+
+          if(tab.status !== "complete") {
+            desc = "[" + tab.status + "] " + desc;
+          }
+
+          if(tab.incognito) {
+            desc = "<url>[Incognito]</url> " + desc;
+          }
+
+          if(tab.pinned) {
+            desc = "<url>[Pinned]</url> " + desc;
+          }
+
+          if(tab.audible) {
+            desc = "<url>[Audible]</url> " + desc;
+          }
 
           return {content: content, description: desc};
       })
@@ -96,7 +107,9 @@ function ffSearchFor(text, callback) {
 }
 
 chrome.omnibox.onInputChanged.addListener(
-  function(text, suggest) { ffSearchFor(text, suggest); }
+  function(text, suggest) {
+    ffSearchFor(text, suggest);
+  }
 );
 
 function ffEscapeHtml(unsafe) {
