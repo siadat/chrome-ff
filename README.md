@@ -16,5 +16,5 @@ and you will see a list of all the tabs that match the phrase `youtube` and `tal
 
 ## Install
 
-Download [chrome-ff.crx](https://github.com/siadat/chrome-ff/releases/download/1.1/chrome-ff-1.1.crx)
+Download [chrome-ff-1.2.crx](https://github.com/siadat/chrome-ff/releases/download/1.2/chrome-ff-1.2.crx)
 and drop it in your `chrome://extensions/` page.
