@@ -12,6 +12,7 @@ function ffGetHostname(url) {
 }
 
 function ffSearchFor(text, callback) {
+  text = text.trim();
   var words_exact = text.split(/\s+/).map(function(word) {
     return new RegExp(word, 'i');
   });
