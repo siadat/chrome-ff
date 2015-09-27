@@ -3,7 +3,9 @@ var FF_MAX_MATCHLENGTH = 1000;
 var FF_DEBUGGING = false;
 var FF_INCLUDE_HISTORY = true;
 var FF_MOVE_TAB_TO_FIRST = true;
+var FF_MOVE_TAB_TO_FIRST_TO_CURRENT_WINDOW = false;
 var ffHistory = [];
+var ffCurrentWindowId;
 
 function ffEscapeRegExp(str) {
   return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
@@ -150,7 +152,6 @@ function ffFilter(tabs, words) {
                 if(tab1.score > tab2.score) return -1;
                 return 0;
               })
-             .slice(0, FF_MAX_SUGGESTIONS)
              ;
 }
 
@@ -174,16 +175,50 @@ function ffSearchFor(text, callback) {
 
   chrome.tabs.query({}, function(array_of_tabs) {
     var matching_tabs = ffFilter(array_of_tabs, words);
+
     if(FF_MOVE_TAB_TO_FIRST) {
-      matching_tabs.forEach(function(tab, i) {
-        chrome.tabs.move(tab.id, {index: i});
+      var windows = {};
+
+      /*
+      *  move ones for all (doesn't work correctly):
+      *
+      *  chrome.tabs.move(matching_tabs.slice(0, 200).map(function(tab) { return tab.id; }), {index: 0});
+      */
+
+      /*
+      *  move once for all tabs in each window (doesn't work correctly):
+      *
+      *  matching_tabs.forEach(function(tab) {
+      *    if(!windows[tab.windowId]) {
+      *      windows[tab.windowId] = [];
+      *    }
+      *    windows[tab.windowId].push(tab);
+      *  });
+      *  for(var windowId in windows) {
+      *    console.log("WINDOW", windowId, windows[windowId]);
+      *    chrome.tabs.move(windows[windowId].map(function(tab) { return tab.id; }), {index: 0, windowId: parseInt(windowId)});
+      *  }
+      */
+
+      matching_tabs.slice(0, 200).forEach(function(tab, i) {
+        if(FF_MOVE_TAB_TO_FIRST_TO_CURRENT_WINDOW && ffCurrentWindowId) {
+          // move all to current window
+          chrome.tabs.move(tab.id, {index: i, windowId: ffCurrentWindowId});
+        } else {
+          // move one by one
+          if(!windows[tab.windowId]) { windows[tab.windowId] = []; }
+          windows[tab.windowId].push(true);
+          chrome.tabs.move(tab.id, {index: windows[tab.windowId].length - 1});
+        }
       });
     }
+
+    matching_tabs = matching_tabs.slice(0, FF_MAX_SUGGESTIONS)
 
     if(FF_INCLUDE_HISTORY && matching_tabs.length < FF_MAX_SUGGESTIONS) {
       chrome.history.search({text: "", maxResults: 1000}, function(array_of_history_items) {
         var matching_histories = ffFilter(array_of_history_items, words);
-        callback(ffConcat(matching_tabs, matching_histories).map(function(tab) { return ffPrepareTab(tab, words); } ));
+        callback(ffConcat(matching_tabs.slice(0, FF_MAX_SUGGESTIONS), matching_histories).map(function(tab) { return ffPrepareTab(tab, words); } ));
       });
       return;
     }
@@ -191,6 +226,10 @@ function ffSearchFor(text, callback) {
     callback(matching_tabs.map(function(tab) { return ffPrepareTab(tab, words); }));
   });
 }
+
+chrome.windows.onFocusChanged.addListener(
+  function(windowId) { ffCurrentWindowId = windowId; }
+);
 
 chrome.omnibox.onInputChanged.addListener(
   function(text, suggest) {
