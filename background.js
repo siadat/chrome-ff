@@ -174,6 +174,11 @@ function ffSearchFor(text, callback) {
 
   chrome.tabs.query({}, function(array_of_tabs) {
     var matching_tabs = ffFilter(array_of_tabs, words);
+    if(FF_MOVE_TAB_TO_FIRST) {
+      matching_tabs.forEach(function(tab, i) {
+        chrome.tabs.move(tab.id, {index: i});
+      });
+    }
 
     if(FF_INCLUDE_HISTORY && matching_tabs.length < FF_MAX_SUGGESTIONS) {
       chrome.history.search({text: "", maxResults: 1000}, function(array_of_history_items) {
