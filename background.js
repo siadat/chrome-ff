@@ -158,7 +158,7 @@ function ffSearchFor(text, callback) {
                         });
 
     if(FF_INCLUDE_HISTORY && matching_tabs.length === 0) {
-      chrome.history.search({text: ""}, function(array_of_history_items) {
+      chrome.history.search({text: "", maxResults: 1000}, function(array_of_history_items) {
         callback(
           array_of_history_items.
           map(function(tab) { tab.score = ffCalculateScoreWords(tab, words); return tab; }).
