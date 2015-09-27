@@ -67,18 +67,18 @@ function ffCalculateScoreWords(tab, words) {
   words
   .map(function(word) { return ffRegexpExact(word); })
   .forEach(function(word, i) {
-    if(tab.title.match(word)) { score += 20; found_words[i] = true; }
-    if(tab.url.match(word)) { score += 20; found_words[i] = true; }
-    if(hostname.match(word)) { score += 20; found_words[i] = true; }
+    if(tab.title.match(word)) { score += 100; found_words[i] = true; }
+    if(tab.url.match(word)) { score += 100; found_words[i] = true; }
+    if(hostname.match(word)) { score += 100; found_words[i] = true; }
   });
 
   words
   .map(function(word) { return ffRegexpFuzzy(word); })
   .forEach(function(word, i) {
     if(found_words[i]) { return; }
-    if(tab.title.match(word)) { score += 100; found_words[i] = true; }
-    if(tab.url.match(word)) { score += 100; found_words[i] = true; }
-    if(hostname.match(word)) { score += 100; found_words[i] = true; }
+    if(tab.title.match(word)) { score += 20; found_words[i] = true; }
+    if(tab.url.match(word)) { score += 20; found_words[i] = true; }
+    if(hostname.match(word)) { score += 20; found_words[i] = true; }
   });
 
   if(found_words.filter(function(x) { return x; }).length !== words.length) { score = 0; }
@@ -157,7 +157,7 @@ function ffSearchFor(text, callback) {
                           return 0;
                         });
 
-    if(FF_INCLUDE_HISTORY && matching_tabs.length === 0) {
+    if(FF_INCLUDE_HISTORY && matching_tabs.length < FF_MAX_SUGGESTIONS) {
       chrome.history.search({text: "", maxResults: 1000}, function(array_of_history_items) {
         callback(
           array_of_history_items.
@@ -168,14 +168,15 @@ function ffSearchFor(text, callback) {
             if(tab1.score > tab2.score) return -1;
             return 0;
           }).
-          slice(0, FF_MAX_SUGGESTIONS).
+          slice(0, FF_MAX_SUGGESTIONS - matching_tabs.length).
           map(function(tab) {
             return ffPrepareHistoryTabForOmnibox(tab, words);
           })
         );
       });
-      return;
     }
+
+    if(matching_tabs.length === 0) { return; }
 
     callback(matching_tabs.slice(0, FF_MAX_SUGGESTIONS).map(function(tab) { return ffPrepareOpenTabForOmnibox(tab, words) }));
   });
