@@ -16,6 +16,8 @@ and you will see a list of all the tabs that match the phrase `youtube` and `tal
 
 Also, the matching is fuzzy, so instead of `youtube`, you could for example write `ytb`.
 
+If no matching open tab is found, the extension will show matching items in your history.
+
 ## Install
 
 Download [chrome-ff-1.2.crx](https://github.com/siadat/chrome-ff/releases/download/1.2/chrome-ff-1.2.crx)
