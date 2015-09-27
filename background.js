@@ -2,6 +2,7 @@ var FF_MAX_SUGGESTIONS = 5;
 var FF_MAX_MATCHLENGTH = 1000;
 var FF_DEBUGGING = false;
 var FF_INCLUDE_HISTORY = true;
+var FF_MOVE_TAB_TO_FIRST = true;
 var ffHistory = [];
 
 function ffEscapeRegExp(str) {
@@ -10,12 +11,13 @@ function ffEscapeRegExp(str) {
 
 function ffActivateTag(tab) {
   if(tab.url) {
-    chrome.tabs.update({
-      url: tab.url
-    });
+    chrome.tabs.update({url: tab.url});
   }
   if(tab.tabId) {
     chrome.tabs.update(tab.tabId, {active: true});
+    if(FF_MOVE_TAB_TO_FIRST) {
+      chrome.tabs.move(tab.tabId, {index: 0});
+    }
   }
   if(tab.windowId) {
     chrome.windows.update(tab.windowId, {focused: true});
@@ -92,7 +94,7 @@ function ffCalculateScoreWords(tab, words) {
   if(found_words.filter(function(x) { return x; }).length !== words.length) { score = 0; }
   if(score > 0 && tab.pinned) { score += 1000; }
 
-  if(FF_DEBUGGING && score > 0) { console.debug("tab", tab.title); }
+  if(FF_DEBUGGING && score > 0) { console.debug("matching tab", hostname, tab); }
   return score;
 }
 
