@@ -67,19 +67,27 @@ function ffCalculateScoreWords(tab, words) {
   words
   .map(function(word) { return ffRegexpExact(word); })
   .forEach(function(word, i) {
+    if(hostname.match(word)) { score += 100; found_words[i] = true; }
     if(tab.title.match(word)) { score += 100; found_words[i] = true; }
     if(tab.url.match(word)) { score += 100; found_words[i] = true; }
-    if(hostname.match(word)) { score += 100; found_words[i] = true; }
   });
 
   words
   .map(function(word) { return ffRegexpFuzzy(word); })
   .forEach(function(word, i) {
     if(found_words[i]) { return; }
-    if(tab.title.match(word)) { score += 20; found_words[i] = true; }
-    if(tab.url.match(word)) { score += 20; found_words[i] = true; }
     if(hostname.match(word)) { score += 20; found_words[i] = true; }
+    if(tab.title.match(word)) { score += 20; found_words[i] = true; }
+    if(tab.url.match(word)) { score += 10; found_words[i] = true; }
   });
+
+  if(tab.visitCount) {
+    score += tab.visitCount * 10;
+  }
+
+  if(tab.lastVisitTime) {
+    score += tab.lastVisitTime / (new Date().getTime());
+  }
 
   if(found_words.filter(function(x) { return x; }).length !== words.length) { score = 0; }
   if(score > 0 && tab.pinned) { score += 1000; }
@@ -100,7 +108,7 @@ function ffRegexpFuzzy(word) {
   return new RegExp(word.split('').map(function(ch) { return ffEscapeRegExp(ch); }).join('.{0,10}?'), 'i');
 }
 
-function ffPrepareTabForOmnibox(tab, words) {
+function ffPrepareTab(tab, words) {
   var content = JSON.stringify({tabId: tab.id, windowId: tab.windowId});
   var desc = ffHighlightText(tab.title, words) + " <url>" +  ffHighlightText(ffGetHostname(tab.url), words) + "</url>";
 
@@ -124,18 +132,34 @@ function ffPrepareTabForOmnibox(tab, words) {
     desc = "<url>[Audible]</url> " + desc;
   }
 
+  if(tab.lastVisitTime) {
+    content = JSON.stringify({url: tab.url});
+    desc = "<url>[History]</url> " + desc;
+  }
+
   return {content: content, description: desc};
 }
 
-function ffPrepareHistoryTabForOmnibox(tab, words) {
-  var result = ffPrepareTabForOmnibox(tab, words);
-  result.content = JSON.stringify({url: tab.url});
-  result.description = "<url>[History]</url> " + result.description;
-  return result;
+function ffFilter(tabs, words) {
+  return tabs.map(function(tab) { tab.score = ffCalculateScoreWords(tab, words); return tab; })
+             .filter(function(tab) { return tab.score >= 10 && tab.title.length > 0; })
+             .sort(function(tab1, tab2) {
+                if(tab1.score < tab2.score) return 1;
+                if(tab1.score > tab2.score) return -1;
+                return 0;
+              })
+             .slice(0, FF_MAX_SUGGESTIONS)
+             ;
 }
 
-function ffPrepareOpenTabForOmnibox(tab, words) {
-  return ffPrepareTabForOmnibox(tab, words);
+function ffConcat(tabs1, tabs2) {
+  return tabs1.concat(ffTabsWithout(tabs2, tabs1));
+}
+
+function ffTabsWithout(whiteTabs, blackTabs) {
+  return whiteTabs.filter(function (whiteTab) {
+    return 0 === blackTabs.filter(function (blackTab) { return blackTab.url === whiteTab.url; }).length;
+  });
 }
 
 function ffSearchFor(text, callback) {
@@ -146,39 +170,18 @@ function ffSearchFor(text, callback) {
     return ffRegexpExactHl(word);
   });
 
-
   chrome.tabs.query({}, function(array_of_tabs) {
-    var matching_tabs = array_of_tabs.
-                        map(function(tab) { tab.score = ffCalculateScoreWords(tab, words); return tab; }).
-                        filter(function(tab) { return tab.score >= 10; }).
-                        sort(function(tab1, tab2) {
-                          if(tab1.score < tab2.score) return 1;
-                          if(tab1.score > tab2.score) return -1;
-                          return 0;
-                        });
+    var matching_tabs = ffFilter(array_of_tabs, words);
 
     if(FF_INCLUDE_HISTORY && matching_tabs.length < FF_MAX_SUGGESTIONS) {
       chrome.history.search({text: "", maxResults: 1000}, function(array_of_history_items) {
-        callback(
-          array_of_history_items.
-          map(function(tab) { tab.score = ffCalculateScoreWords(tab, words); return tab; }).
-          filter(function(tab) { return tab.score >= 10; }).
-          sort(function(tab1, tab2) {
-            if(tab1.score < tab2.score) return 1;
-            if(tab1.score > tab2.score) return -1;
-            return 0;
-          }).
-          slice(0, FF_MAX_SUGGESTIONS - matching_tabs.length).
-          map(function(tab) {
-            return ffPrepareHistoryTabForOmnibox(tab, words);
-          })
-        );
+        var matching_histories = ffFilter(array_of_history_items, words);
+        callback(ffConcat(matching_tabs, matching_histories).map(function(tab) { return ffPrepareTab(tab, words); } ));
       });
+      return;
     }
 
-    if(matching_tabs.length === 0) { return; }
-
-    callback(matching_tabs.slice(0, FF_MAX_SUGGESTIONS).map(function(tab) { return ffPrepareOpenTabForOmnibox(tab, words) }));
+    callback(matching_tabs.map(function(tab) { return ffPrepareTab(tab, words); }));
   });
 }
 
