@@ -12,9 +12,9 @@ Instead of going through all your tabs one by one, you could just type (in your 
 
     ff youtube talk
 
-and you will see a list of all the tabs that match the phrase `youtube` and `talk` in any order.
+and you will see a list of all the tabs that match the phrase "youtube" and "talk" in any order.
 
-Also, the matching is fuzzy, so instead of `youtube`, you could for example write `ytb`.
+Matching is fuzzy, so instead of "youtube", you could for example write "ytb".
 
 If no matching open tab is found, the extension will show matching items in your history.
 
