@@ -6,6 +6,7 @@ var FF_MOVE_TAB_TO_FIRST = true;
 var FF_MOVE_TAB_TO_FIRST_TO_CURRENT_WINDOW = false;
 var ffHistory = [];
 var ffCurrentWindowId;
+var ffTabsOnStart = [];
 
 function ffEscapeRegExp(str) {
   return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
@@ -200,9 +201,13 @@ function ffSearchFor(text, callback) {
       *  }
       */
 
+      if(ffTabsOnStart.length === 0) {
+        ffTabsOnStart = matching_tabs.slice(0, 200).map(function(tab) { return {id: tab.id, index: tab.index}; });
+      }
+
       matching_tabs.slice(0, 200).forEach(function(tab, i) {
         if(FF_MOVE_TAB_TO_FIRST_TO_CURRENT_WINDOW && ffCurrentWindowId) {
-          // move all to current window
+          // move one by one to current window
           chrome.tabs.move(tab.id, {index: i, windowId: ffCurrentWindowId});
         } else {
           // move one by one
@@ -234,6 +239,21 @@ chrome.windows.onFocusChanged.addListener(
 chrome.omnibox.onInputChanged.addListener(
   function(text, suggest) {
     ffSearchFor(text, suggest);
+  }
+);
+
+chrome.omnibox.onInputCancelled.addListener(
+  // TODO this is called even when user presses UP/Down arrows.
+  function() {
+    // revert tab order (one by one)
+    ffTabsOnStart.sort(function(tab1, tab2) {
+      if(tab1.index < tab2.index) return 1;
+      if(tab1.index > tab2.index) return -1;
+      return 0;
+    }).forEach(function(tab, i) {
+      chrome.tabs.move(tab.id, {index: tab.index});
+    });
+    ffTabsOnStart = [];
   }
 );
 
