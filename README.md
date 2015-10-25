@@ -22,3 +22,7 @@ If no matching open tab is found, the extension will show matching items in your
 
 Download [chrome-ff-1.2.crx](https://github.com/siadat/chrome-ff/releases/download/1.2/chrome-ff-1.2.crx)
 and drop it in your `chrome://extensions/` page.
+
+## License
+
+This extension is released under the [MIT License](http://www.opensource.org/licenses/MIT).
