@@ -2,7 +2,7 @@ var FF_MAX_SUGGESTIONS = 5;
 var FF_MAX_MATCHLENGTH = 1000;
 var FF_DEBUGGING = false;
 var FF_INCLUDE_HISTORY = true;
-var FF_MOVE_TAB_TO_FIRST = true;
+var FF_MOVE_TAB_TO_FIRST = false;
 var FF_MOVE_TAB_TO_FIRST_TO_CURRENT_WINDOW = false;
 var ffHistory = [];
 var ffCurrentWindowId;
@@ -97,7 +97,7 @@ function ffCalculateScoreWords(tab, words) {
   if(found_words.filter(function(x) { return x; }).length !== words.length) { score = 0; }
   if(score > 0 && tab.pinned) { score += 1000; }
 
-  if(FF_DEBUGGING && score > 0) { console.debug("matching tab", hostname, tab); }
+  if(FF_DEBUGGING && score > 0) { console.debug("matching tab", tab.lastVisitTime && "History" || "Opened", "id:"+ tab.id, "score:"+ score, hostname, tab); }
   return score;
 }
 
@@ -166,7 +166,47 @@ function ffTabsWithout(whiteTabs, blackTabs) {
   });
 }
 
-function ffSearchFor(text, callback) {
+function ffReorderTabs(tabs) {
+  var windows = {};
+  /*
+  *  move ones for all (doesn't work correctly):
+  *
+  *  chrome.tabs.move(tabs.map(function(tab) { return tab.id; }), {index: 0});
+  */
+
+  /*
+  *  move once for all tabs in each window (doesn't work correctly):
+  *
+  *  tabs.forEach(function(tab) {
+  *    if(!windows[tab.windowId]) {
+  *      windows[tab.windowId] = [];
+  *    }
+  *    windows[tab.windowId].push(tab);
+  *  });
+  *  for(var windowId in windows) {
+  *    console.log("WINDOW", windowId, windows[windowId]);
+  *    chrome.tabs.move(windows[windowId].map(function(tab) { return tab.id; }), {index: 0, windowId: parseInt(windowId)});
+  *  }
+  */
+
+  if(ffTabsOnStart.length === 0) {
+    ffTabsOnStart = tabs.map(function(tab) { return {id: tab.id, index: tab.index}; });
+  }
+
+  tabs.forEach(function(tab, i) {
+    if(FF_MOVE_TAB_TO_FIRST_TO_CURRENT_WINDOW && ffCurrentWindowId) {
+      // move one by one to current window
+      chrome.tabs.move(tab.id, {index: i, windowId: ffCurrentWindowId});
+    } else {
+      // move one by one
+      if(!windows[tab.windowId]) { windows[tab.windowId] = []; }
+      windows[tab.windowId].push(true);
+      chrome.tabs.move(tab.id, {index: windows[tab.windowId].length - 1});
+    }
+  });
+}
+
+function ffSearchFor(text) {
   text = text.trim();
   var words = text.split(/\s+/);
 
@@ -174,71 +214,37 @@ function ffSearchFor(text, callback) {
     return ffRegexpExactHl(word);
   });
 
-  chrome.tabs.query({}, function(array_of_tabs) {
-    var matching_tabs = ffFilter(array_of_tabs, words);
+  return new Promise(function(resolve, reject) {
+    chrome.tabs.query({}, function(array_of_tabs) {
+      var matching_tabs = ffFilter(array_of_tabs, words);
 
-    if(FF_MOVE_TAB_TO_FIRST) {
-      var windows = {};
-
-      /*
-      *  move ones for all (doesn't work correctly):
-      *
-      *  chrome.tabs.move(matching_tabs.slice(0, 200).map(function(tab) { return tab.id; }), {index: 0});
-      */
-
-      /*
-      *  move once for all tabs in each window (doesn't work correctly):
-      *
-      *  matching_tabs.forEach(function(tab) {
-      *    if(!windows[tab.windowId]) {
-      *      windows[tab.windowId] = [];
-      *    }
-      *    windows[tab.windowId].push(tab);
-      *  });
-      *  for(var windowId in windows) {
-      *    console.log("WINDOW", windowId, windows[windowId]);
-      *    chrome.tabs.move(windows[windowId].map(function(tab) { return tab.id; }), {index: 0, windowId: parseInt(windowId)});
-      *  }
-      */
-
-      if(ffTabsOnStart.length === 0) {
-        ffTabsOnStart = matching_tabs.slice(0, 200).map(function(tab) { return {id: tab.id, index: tab.index}; });
+      if(FF_MOVE_TAB_TO_FIRST) {
+        ffReorderTabs(matching_tabs.slice(0, 200));
       }
 
-      matching_tabs.slice(0, 200).forEach(function(tab, i) {
-        if(FF_MOVE_TAB_TO_FIRST_TO_CURRENT_WINDOW && ffCurrentWindowId) {
-          // move one by one to current window
-          chrome.tabs.move(tab.id, {index: i, windowId: ffCurrentWindowId});
-        } else {
-          // move one by one
-          if(!windows[tab.windowId]) { windows[tab.windowId] = []; }
-          windows[tab.windowId].push(true);
-          chrome.tabs.move(tab.id, {index: windows[tab.windowId].length - 1});
-        }
-      });
-    }
-
-    matching_tabs = matching_tabs.slice(0, FF_MAX_SUGGESTIONS)
-
-    if(FF_INCLUDE_HISTORY && matching_tabs.length < FF_MAX_SUGGESTIONS) {
-      chrome.history.search({text: "", maxResults: 1000}, function(array_of_history_items) {
-        var matching_histories = ffFilter(array_of_history_items, words);
-        callback(ffConcat(matching_tabs.slice(0, FF_MAX_SUGGESTIONS), matching_histories).map(function(tab) { return ffPrepareTab(tab, words); } ));
-      });
-      return;
-    }
-
-    callback(matching_tabs.map(function(tab) { return ffPrepareTab(tab, words); }));
+      matching_tabs = matching_tabs.slice(0, FF_MAX_SUGGESTIONS);
+      if(FF_INCLUDE_HISTORY && matching_tabs.length < FF_MAX_SUGGESTIONS) {
+        chrome.history.search({text: "", maxResults: 100, startTime: new Date().getTime() - 30 * 24 * 3600 * 1000}, function(array_of_history_items) {
+          var matching_histories = ffFilter(array_of_history_items, words);
+          resolve(ffConcat(matching_tabs.slice(0, FF_MAX_SUGGESTIONS), matching_histories).map(function(tab) { return ffPrepareTab(tab, words); } ));
+        });
+        return;
+      }
+      resolve(matching_tabs.map(function(tab) { return ffPrepareTab(tab, words); }));
+    });
   });
 }
 
 chrome.windows.onFocusChanged.addListener(
-  function(windowId) { ffCurrentWindowId = windowId; }
+  function(windowId) {
+    ffCurrentWindowId = windowId;
+  }
 );
 
 chrome.omnibox.onInputChanged.addListener(
   function(text, suggest) {
-    ffSearchFor(text, suggest);
+    if(FF_DEBUGGING) { console.debug("input changed:", text); }
+    ffSearchFor(text).then(function(suggestions) { suggest(suggestions); });
   }
 );
 
@@ -278,7 +284,7 @@ chrome.omnibox.onInputEntered.addListener(
       } catch(e) {
         // User probably typed something but selected the first default option,
         // i.e., "Run ff command: query"
-        ffSearchFor(text, function(suggestions) {
+        ffSearchFor(text).then(function(suggestions) {
           if(suggestions.length === 0) { return; }
           var selected = JSON.parse(suggestions[0].content);
           ffHistory.push(selected);
