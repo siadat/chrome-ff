@@ -10,11 +10,11 @@ Let's say you have 100 tabs open, in multiple windows.
 You want to find a youtube tab of a talk you were watching a few hours ago.
 Instead of going through all your tabs one by one, you could just type (in your address bar):
 
-    ff ytube talk
+    ff talk ytube
 
 and you will see a list of all the tabs that match the phrase "ytube" and "talk" in any order.
 
-Matching is fuzzy, so instead of "ytube", will match "youtube".
+Matching is fuzzy, so "ytube" will match "youtube".
 
 If no matching open tab is found, the extension will show matching items in your history.
 
