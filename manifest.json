@@ -3,7 +3,7 @@
 
   "name": "FF",
   "description": "Omnibox Fuzzy Finder for Chrome. Type 'ff' in your address bar and search for your tabs.",
-  "version": "1.3",
+  "version": "1.4",
   "author": "Sina Siadat <siadat@gmail.com>",
   "homepage_url": "https://github.com/siadat/chrome-ff",
   "permissions": [ "tabs", "history" ],

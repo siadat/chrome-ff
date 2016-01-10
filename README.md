@@ -20,7 +20,7 @@ If no matching open tab is found, the extension will show matching items in your
 
 ## Install
 
-Download [chrome-ff-1.3.crx](https://github.com/siadat/chrome-ff/releases/download/1.3/chrome-ff.crx)
+Download [chrome-ff-1.4.crx](https://github.com/siadat/chrome-ff/releases/download/1.4/chrome-ff.crx)
 and drop it in your `chrome://extensions/` page.
 
 ## Contributing
