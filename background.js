@@ -14,7 +14,7 @@ function ffEscapeRegExp(str) {
 
 function ffActivateTag(tab) {
   if(tab.url) {
-    chrome.tabs.update({url: tab.url});
+    chrome.tabs.create({url: tab.url});
   }
   if(tab.tabId) {
     chrome.tabs.update(tab.tabId, {active: true});
