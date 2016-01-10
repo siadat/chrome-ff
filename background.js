@@ -114,7 +114,7 @@ function ffRegexpFuzzy(word) {
 }
 
 function ffPrepareTab(tab, words) {
-  var content = JSON.stringify({tabId: tab.id, windowId: tab.windowId});
+  var content = tab.url + "#" + tab.windowId + "." + tab.id;
   var desc = ffHighlightText(tab.title, words) + " <url>" +  ffHighlightText(ffGetHostname(tab.url), words) + "</url>";
 
   if(FF_DEBUGGING) {
@@ -138,7 +138,7 @@ function ffPrepareTab(tab, words) {
   }
 
   if(tab.lastVisitTime) {
-    content = JSON.stringify({url: tab.url});
+    content = tab.url + "#url";
     desc = "<url>[History]</url> " + desc;
   }
 
@@ -204,6 +204,18 @@ function ffReorderTabs(tabs) {
       chrome.tabs.move(tab.id, {index: windows[tab.windowId].length - 1});
     }
   });
+}
+
+function ffParseSelected(text) {
+  var matchTab = text.match(/#(\d+)\.(\d+)$/);
+
+  if(matchTab) {
+    return {windowId: +matchTab[1], tabId: +matchTab[2]};
+  } else {
+    var matchUrl = text.match(/(.*)#url$/);
+    if(matchUrl) { return {url: matchUrl[1]}; }
+  }
+  return null;
 }
 
 function ffSearchFor(text) {
@@ -279,14 +291,13 @@ chrome.omnibox.onInputEntered.addListener(
         return;
       }
     } else {
-      try {
-        selected = JSON.parse(text);
-      } catch(e) {
+      selected = ffParseSelected(text);
+      if(!selected) {
         // User probably typed something but selected the first default option,
         // i.e., "Run ff command: query"
         ffSearchFor(text).then(function(suggestions) {
           if(suggestions.length === 0) { return; }
-          var selected = JSON.parse(suggestions[0].content);
+          var selected = ffParseSelected(suggestions[0].content);
           ffHistory.push(selected);
           ffActivateTag(selected);
         });
