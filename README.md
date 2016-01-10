@@ -23,6 +23,12 @@ If no matching open tab is found, the extension will show matching items in your
 Download [chrome-ff-1.3.crx](https://github.com/siadat/chrome-ff/releases/download/1.3/chrome-ff.crx)
 and drop it in your `chrome://extensions/` page.
 
+## Contributing
+
+- Fork and submit a pull request
+- [Send a feature request](https://github.com/siadat/chrome-ff/issues/new)
+- [Report a problem](https://github.com/siadat/chrome-ff/issues/new)
+
 ## License
 
 This extension is released under the [MIT License](http://www.opensource.org/licenses/MIT).
