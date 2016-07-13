@@ -1,6 +1,8 @@
 # Fuzzy Finder for Chrome
 
-Adds fuzzy tab search to the omnibox.
+Type `ff` in your address bar followed by your keywords to fuzzy search your tabs and history.
+
+**Note:** To select the first match, you can press Enter without pressing down or selecting any of the results.
 
 <p align="center"> <a href="#"><img src="screenshot-1.3.png"/></a> </p>
 
