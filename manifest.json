@@ -1,15 +1,15 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
 
   "name": "FF: Fuzzy finder for Chrome tabs and windows",
   "short_name": "FF",
   "description": "Fuzzy Finder for Chrome omnibox. Type 'ff' in your address bar and search for your tabs.",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "author": "Sina Siadat <siadat@gmail.com>",
   "homepage_url": "https://github.com/siadat/chrome-ff",
   "permissions": [ "tabs", "history" ],
   "background": {
-    "scripts": ["background.js"]
+    "service_worker": "background.js"
   },
   "omnibox": { "keyword" : "ff" },
   "icons": {
