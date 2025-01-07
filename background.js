@@ -36,9 +36,12 @@ function ffEscapeHtml(unsafe) {
 }
 
 function ffGetHostname(url) {
-  var a  = document.createElement('a');
-  a.href = url;
-  return a.hostname;
+  try {
+    return new URL(url).hostname;
+  } catch (e) {
+    console.error("Invalid URL:", url);
+    return "";
+  }
 }
 
 function ffHighlightText(text, words) {
